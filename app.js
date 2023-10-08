@@ -1,90 +1,157 @@
+//DEPENDENCYES
 import express from "express"
 import fs from "fs"
 import mongoose from "mongoose"
 import dotenv from "dotenv"
 import cors from "cors"
-
-import Logo from "./Logo.js"
+//COMPONENTS
+import Logo from "./schema/Logo.js"
 import ValidateQueryParams from "./middleware/ValidateQueryParams.js"
+import SanitizeQueryParams from "./middleware/SanitizeQueryParams.js"
 
 const app = express()
 dotenv.config()
 app.use(cors())
 
-
-app.get('/nbalogos', ValidateQueryParams, async (req, res) => {
+app.get('/nbalogos', ValidateQueryParams, SanitizeQueryParams, async (req, res) => {
 
     const teamName = req.query.teamName
     const teamYear = req.query.teamYear
 
+    let teams
+
     if (!teamName && !teamYear) {  //WHEN WE DONT HAVE ANY QUERYS
-        const wholeDB = await Logo.find({})
-        res.status(200).json(wholeDB)
+        teams = await Logo.find({})
+
+        res.status(200).json(teams)
         return
     }
 
     if (teamName && !teamYear) { //WHEN WE ONLY HAVE TEAMNAME QUERY
 
-        const team = await Logo.find({ teamName })
-            .catch(err => {
-                res.status(400).json(err)
+        if (Array.isArray(teamName)) { //If the query is an array
+
+            try {
+                const teamsPromise = teamName.map(team => Logo.find({ teamName: team }))
+                teams = await Promise.all(teamsPromise)
+            } catch (err) {
+                res.status(400).json({ error: err })
                 return
             }
-            )
 
-        if (team.length === 0) {
-            res.status(400).json(`Couldnt find a logo with name: '${teamName}'`)
-            return
+            let cnt = 0
+            teams.forEach(team => {
+                if (team.length === 0)
+                    cnt++
+            })
+
+            if (cnt) {
+                res.status(400).json({ error: `${cnt} elements of the input query array are not entered correctly` })
+                return
+            }
+
+        } else {//If query isnt an array
+
+            teams = await Logo.find({ teamName })
+                .catch(err => {
+                    res.status(400).json(err)
+                    return
+                })
+
+            if (teams.length === 0) {
+                res.status(400).json(`Couldnt find a logo with name: '${teamName}'`)
+                return
+            }
+
         }
 
-        res.status(200).json(team)
+        const modifiedData = teams.map(team => ({
+            teamName: team.teamName,
+            Base64String: team.Base64String
+        }));
+
+
+        res.status(200).json(modifiedData)
         return
     }
 
     if (!teamName && teamYear) { //WHEN WE ONLY HAVE TEAMYEAR QUERY
 
-        const team = await Logo.find({
+        teams = await Logo.find({
             $and: [
                 { firstYearLogoUsed: { $lt: Number(teamYear) } },
                 { lastYearLogoUsed: { $gt: Number(teamYear) } }
             ]
+        }).catch(err => {
+            res.status(400).json(err)
+            return
         })
-            .catch(err => {
-                res.status(400).json(err)
-                return
-            })
 
-        if (team.length === 0) {
+        if (teams.length === 0) {
             res.status(400).json(`Couldnt find a logo that was used ${teamYear}`)
             return
+
         }
 
-        res.status(200).json(team)
+        const modifiedData = teams.map(team => ({
+            teamName: team.teamName,
+            teamYear: team.teamYear,
+            Base64String: team.Base64String
+        }));
+
+        res.status(200).json(modifiedData)
+        return
     }
 
     if (teamName && teamYear) { //WHEN WE HAVE BOTH QUERYS
 
-        const team = await Logo.findOne({
-            $and: [
-                { teamName },
-                { firstYearLogoUsed: { $lt: Number(teamYear) } },
-                { lastYearLogoUsed: { $gt: Number(teamYear) } }
-            ]
-        })
-            .catch(err => {
+        if (Array.isArray(teamName)) { //If the query is an array
+
+            try {
+                const teamsPromise = teamName.map(async team => {
+                    return await Logo.findOne({
+                        $and: [
+                            { teamName: team },
+                            { firstYearLogoUsed: { $lte: Number(teamYear) } },
+                            { lastYearLogoUsed: { $gte: Number(teamYear) } }
+                        ]
+                    })
+                })
+                teams = await Promise.all(teamsPromise)
+
+            } catch (err) {
+                res.status(400).json({ error: err })
+                return
+            }
+
+        } else {
+
+            teams = await Logo.findOne({
+                $and: [
+                    { teamName },
+                    { firstYearLogoUsed: { $lte: Number(teamYear) } },
+                    { lastYearLogoUsed: { $gte: Number(teamYear) } }
+                ]
+            }).catch(err => {
                 res.status(400).json(err)
                 return
-
             })
 
-        if (team === null) {
-            res.status(400).json(`Couldnt find a logo named: ${teamName}, that was used ${teamYear}`)
-            return
+            if (teams === null) {
+                res.status(400).json(`Couldnt find a logo named: ${teamName}, that was used ${teamYear}`)
+                return
+            }
         }
+        let modifiedData = teams.map(team => (
+            {
+                teamName: team?.teamName,
+                Base64String: team?.Base64String
+            }))
 
-        res.status(200).json(team)
-
+        res.status(200).json(modifiedData)
+        return
     }
+
 
 })
 
@@ -108,11 +175,9 @@ app.get("/names", (req, res) => {
                     console.log(err)
                     return
                 } else
-
                     return data
             })
             let Base64String = imageBuffer.toString("base64")
-            Base64String = "asd"
 
             if (splitFile[splitFileLength - 3] !== "logo") {
 

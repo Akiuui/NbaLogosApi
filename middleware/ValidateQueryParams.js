@@ -5,6 +5,13 @@ function ValidateQueryParams(req, res, next) {
         return res.status(400).json({ error: 'teamName must be a string' });
     }
 
+    if (teamName.includes(',')) {
+
+        const validatedTeamName = teamName.split(',')
+
+        req.query.teamName = validatedTeamName
+    }
+
     if (teamYear !== undefined && isNaN(Number(teamYear))) {
         console.log("Usao je")
         return res.status(400).json({ error: 'teamYear must be a number' });
