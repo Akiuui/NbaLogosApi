@@ -142,11 +142,14 @@ app.get('/nbalogos', ValidateQueryParams, SanitizeQueryParams, async (req, res) 
                 return
             }
         }
+
         let modifiedData = teams.map(team => (
             {
                 teamName: team?.teamName,
                 Base64String: team?.Base64String
             }))
+
+        modifiedData = modifiedData.filter(logo => logo.teamName && logo.Base64String)
 
         res.status(200).json(modifiedData)
         return
@@ -155,7 +158,7 @@ app.get('/nbalogos', ValidateQueryParams, SanitizeQueryParams, async (req, res) 
 
 })
 
-app.get("/names", (req, res) => {
+app.get("/repopulateDB", (req, res) => {
 
     try {
 
