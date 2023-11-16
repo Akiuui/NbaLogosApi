@@ -5,9 +5,9 @@ import mongoose from "mongoose"
 import dotenv from "dotenv"
 import cors from "cors"
 //COMPONENTS
-import Logo from "./schema/Logo.js"
-import ValidateQueryParams from "./middleware/ValidateQueryParams.js"
-import SanitizeQueryParams from "./middleware/SanitizeQueryParams.js"
+import Logo from "../schema/Logo.js"
+import ValidateQueryParams from "../middleware/ValidateQueryParams.js"
+import SanitizeQueryParams from "../middleware/SanitizeQueryParams.js"
 
 const app = express()
 dotenv.config()
