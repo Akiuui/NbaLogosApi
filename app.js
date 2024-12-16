@@ -18,7 +18,7 @@ app.get('/nbalogos', ValidateQueryParams, SanitizeQueryParams, async (req, res) 
     const teamName = req.query.teamName
     const teamYear = req.query.teamYear
 
-    let teams
+    let teams = []
 
     if (!teamName && !teamYear) {  //WHEN WE DONT HAVE ANY QUERYS
         teams = await Logo.find({})
@@ -52,7 +52,7 @@ app.get('/nbalogos', ValidateQueryParams, SanitizeQueryParams, async (req, res) 
 
         } else {//If query isnt an array
 
-            teams = await Logo.find({ teamName })
+            teams[0] = await Logo.find({ teamName })
                 .catch(err => {
                     res.status(400).json(err)
                     return
@@ -77,7 +77,7 @@ app.get('/nbalogos', ValidateQueryParams, SanitizeQueryParams, async (req, res) 
 
     if (!teamName && teamYear) { //WHEN WE ONLY HAVE TEAMYEAR QUERY
 
-        teams = await Logo.find({
+        teams[0] = await Logo.find({
             $and: [
                 { firstYearLogoUsed: { $lt: Number(teamYear) } },
                 { lastYearLogoUsed: { $gt: Number(teamYear) } }
@@ -124,9 +124,9 @@ app.get('/nbalogos', ValidateQueryParams, SanitizeQueryParams, async (req, res) 
                 return
             }
 
-        } else {
+        } else { //If the query isnt an array
 
-            teams = await Logo.findOne({
+            teams[0] = await Logo.findOne({
                 $and: [
                     { teamName },
                     { firstYearLogoUsed: { $lte: Number(teamYear) } },
@@ -137,12 +137,12 @@ app.get('/nbalogos', ValidateQueryParams, SanitizeQueryParams, async (req, res) 
                 return
             })
 
-            if (teams === null) {
+            if (teams[0] === null) {
                 res.status(400).json(`Couldnt find a logo named: ${teamName}, that was used ${teamYear}`)
                 return
             }
         }
-
+        
         let modifiedData = teams.map(team => (
             {
                 teamName: team?.teamName,
